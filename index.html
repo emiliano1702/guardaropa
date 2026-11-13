@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#111318">
+<meta name="description" content="Control offline de prendas del guardarropa">
+<link rel="manifest" href="manifest.webmanifest">
+<title>Guardarropa</title>
+<style>
+:root{color-scheme:dark;--bg:#101216;--panel:#1a1e25;--panel2:#232936;--line:#343b49;--txt:#f5f6f8;--muted:#aab2c0;--red:#e44747;--green:#39b978;--blue:#5598ef}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font:16px system-ui,-apple-system,Segoe UI,sans-serif}
+header{padding:18px 16px 12px;background:#151920;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:2}
+h1{font-size:22px;margin:0;font-weight:850;letter-spacing:.06em}header p{margin:4px 0 0;color:var(--muted);font-size:12px;letter-spacing:.08em}
+main{max-width:650px;margin:auto;padding:14px 14px 40px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:11px 9px}.stat b{display:block;font-size:23px}.stat span{font-size:11px;color:var(--muted)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:15px;margin-bottom:13px}
+h2{font-size:17px;margin:0 0 13px}
+label{display:block;color:var(--muted);font-size:12px;font-weight:700;letter-spacing:.04em;margin:11px 0 6px}
+input,textarea{width:100%;background:#10141a;color:var(--txt);border:1px solid var(--line);border-radius:12px;padding:14px;font:inherit;font-size:17px;outline:none}
+input:focus,textarea:focus{border-color:var(--blue)}textarea{min-height:72px;resize:vertical}
+.pay{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.pay button,.secondary,.primary,.danger{border:1px solid var(--line);border-radius:13px;padding:14px 10px;background:var(--panel2);color:var(--txt);font-weight:750;font-size:15px}
+.pay button.selected{border:2px solid var(--green);background:#183529}
+.primary{width:100%;background:var(--red);border-color:var(--red);font-size:17px;padding:16px;margin-top:14px}
+.secondary{width:100%;background:var(--panel2)}.danger{background:#3a2024;border-color:#63343b;color:#ffb9bd}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.searchrow{display:flex;gap:8px}.searchrow input{min-width:0}
+.item{background:#12161d;border:1px solid var(--line);border-radius:13px;padding:12px;margin-top:9px}
+.itemtop{display:flex;justify-content:space-between;gap:10px;align-items:center}
+.num{font-size:22px;font-weight:850}.pill{font-size:11px;padding:5px 8px;border-radius:20px;background:#183529;color:#9af0c2}.pill.out{background:#303744;color:#c6ceda}
+.item p{margin:6px 0;color:#d5d9e0}.meta{font-size:12px;color:var(--muted)}
+.itembuttons{display:flex;gap:7px;margin-top:10px}.itembuttons button{flex:1;padding:10px}
+.empty{text-align:center;color:var(--muted);padding:18px 5px;font-size:14px}
+.note{font-size:12px;color:var(--muted);line-height:1.45;margin:10px 2px}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#f5f6f8;color:#111;padding:12px 16px;border-radius:12px;font-weight:700;display:none;z-index:5;max-width:90%;text-align:center}
+.hidden{display:none!important}
+@media(min-width:600px){main{padding-top:20px}.stats{gap:12px}.card{padding:18px}}
+</style>
+</head>
+<body>
+<header><h1>GUARDARROPA</h1><p>CONTROL DE PRENDAS · MODO LOCAL</p></header>
+<main>
+ <section class="stats">
+  <div class="stat"><b id="pendingCount">0</b><span>GUARDADAS</span></div>
+  <div class="stat"><b id="cashTotal">$0</b><span>EFECTIVO</span></div>
+  <div class="stat"><b id="qrTotal">$0</b><span>QR</span></div>
+ </section>
+ <section class="card">
+  <h2>Registrar prenda</h2>
+  <label for="ticket">NÚMERO DEL TALONARIO</label>
+  <input id="ticket" inputmode="numeric" autocomplete="off" placeholder="Ej. 001">
+  <label for="description">DESCRIPCIÓN</label>
+  <textarea id="description" placeholder="Ej. Campera negra deportiva"></textarea>
+  <label for="price">PRECIO COBRADO ($)</label>
+  <input id="price" inputmode="decimal" type="number" min="0" step="1" placeholder="Ej. 2000">
+  <label>FORMA DE PAGO</label>
+  <div class="pay">
+   <button type="button" id="cashBtn" class="selected" onclick="choosePay('Efectivo')">💵 EFECTIVO</button>
+   <button type="button" id="qrBtn" onclick="choosePay('QR / transferencia')">▦ QR / TRANSFERENCIA</button>
+  </div>
+  <button class="primary" onclick="addItem()">＋ REGISTRAR CAMPERA</button>
+  <p class="note">El número se carga manualmente, igual que en el talonario físico. No se asignan números automáticos.</p>
+ </section>
+ <section class="card">
+  <h2>Buscar / entregar</h2>
+  <div class="searchrow"><input id="search" placeholder="Buscar por número o descripción" oninput="render()"></div>
+  <div id="items"><div class="empty">Todavía no hay prendas registradas.</div></div>
+ </section>
+ <section class="card">
+  <h2>Herramientas</h2>
+  <div class="actions">
+   <button class="secondary" onclick="exportBackup()">⬇ Copia de seguridad</button>
+   <button class="secondary" onclick="document.getElementById('importFile').click()">⬆ Restaurar copia</button>
+  </div>
+  <input id="importFile" class="hidden" type="file" accept="application/json" onchange="importBackup(event)">
+  <p class="note">Los datos quedan guardados en este teléfono. Exportá una copia al terminar la noche y antes de cambiar de dispositivo o borrar datos del navegador.</p>
+ </section>
+</main>
+<div id="toast" class="toast"></div>
+<script>
+const KEY='guardarropa-registros-v1';
+let records=load();
+let payment='Efectivo';
+function load(){try{return JSON.parse(localStorage.getItem(KEY)||'[]')}catch(e){return []}}
+function save(){localStorage.setItem(KEY,JSON.stringify(records));render()}
+function money(n){return new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0}).format(n||0)}
+function toast(t){const el=document.getElementById('toast');el.textContent=t;el.style.display='block';setTimeout(()=>el.style.display='none',2200)}
+function choosePay(p){payment=p;document.getElementById('cashBtn').classList.toggle('selected',p==='Efectivo');document.getElementById('qrBtn').classList.toggle('selected',p!=='Efectivo')}
+function addItem(){
+ const number=document.getElementById('ticket').value.trim();
+ const description=document.getElementById('description').value.trim();
+ const priceRaw=document.getElementById('price').value.trim();
+ const price=Number(priceRaw);
+ if(!number){toast('Ingresá el número del talonario');document.getElementById('ticket').focus();return}
+ if(!description){toast('Agregá una descripción');document.getElementById('description').focus();return}
+ if(priceRaw===''||!Number.isFinite(price)||price<0){toast('Ingresá un precio válido');document.getElementById('price').focus();return}
+ const today=new Date().toLocaleDateString('en-CA');
+ if(records.some(r=>r.number.toLowerCase()===number.toLowerCase()&&r.date===today)){toast('Ese número ya está registrado hoy');return}
+ records.unshift({id:Date.now()+'-'+Math.random().toString(16).slice(2),number,description,price,payment,status:'Guardada',date:today,created:new Date().toISOString()});
+ save();document.getElementById('ticket').value='';document.getElementById('description').value='';document.getElementById('price').value='';document.getElementById('ticket').focus();toast('Campera registrada')
+}
+function deliver(id){const r=records.find(x=>x.id===id);if(!r)return;if(confirm('¿Confirmás la entrega del número '+r.number+'?')){r.status='Entregada';r.delivered=new Date().toISOString();save();toast('Prenda marcada como entregada')}}
+function render(){
+ const today=new Date().toLocaleDateString('en-CA');
+ const pending=records.filter(r=>r.status==='Guardada');
+ document.getElementById('pendingCount').textContent=pending.length;
+ document.getElementById('cashTotal').textContent=money(records.filter(r=>r.date===today&&r.payment==='Efectivo').reduce((s,r)=>s+r.price,0));
+ document.getElementById('qrTotal').textContent=money(records.filter(r=>r.date===today&&r.payment!=='Efectivo').reduce((s,r)=>s+r.price,0));
+ const q=document.getElementById('search').value.trim().toLowerCase();
+ const found=records.filter(r=>(r.number+' '+r.description).toLowerCase().includes(q));
+ const root=document.getElementById('items');
+ if(!found.length){root.innerHTML='<div class="empty">No se encontraron prendas.</div>';return}
+ root.innerHTML=found.map(r=>`<article class="item"><div class="itemtop"><span class="num">N.º ${esc(r.number)}</span><span class="pill ${r.status==='Entregada'?'out':''}">${r.status}</span></div><p>${esc(r.description)}</p><div class="meta">${money(r.price)} · ${esc(r.payment)} · ${formatDate(r.date)}</div>${r.status==='Guardada'?`<div class="itembuttons"><button class="secondary" onclick="deliver('${r.id}')">✓ MARCAR ENTREGADA</button></div>`:''}</article>`).join('');
+}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function formatDate(d){const [y,m,day]=d.split('-');return `${day}/${m}/${y}`}
+function exportBackup(){
+ const blob=new Blob([JSON.stringify({app:'Guardarropa',version:1,exported:new Date().toISOString(),records},null,2)],{type:'application/json'});
+ const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='guardarropa-copia-'+new Date().toLocaleDateString('en-CA')+'.json';a.click();URL.revokeObjectURL(a.href);toast('Copia de seguridad preparada')
+}
+function importBackup(e){
+ const file=e.target.files[0];if(!file)return;const reader=new FileReader();
+ reader.onload=()=>{try{const data=JSON.parse(reader.result);if(!Array.isArray(data.records))throw Error();if(!confirm('Restaurar esta copia reemplazará los registros actuales. ¿Continuar?'))return;records=data.records;save();toast('Copia restaurada')}catch(err){toast('El archivo no parece una copia válida')}e.target.value=''};
+ reader.readAsText(file)
+}
+if('serviceWorker' in navigator && location.protocol.startsWith('http')){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}))}
+render();
+</script>
+</body></html>

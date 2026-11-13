@@ -1,0 +1,11 @@
+{
+  "name": "Guardarropa - Control de prendas",
+  "short_name": "Guardarropa",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#101216",
+  "theme_color": "#111318",
+  "description": "Control offline de prendas del guardarropa",
+  "icons": [{"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]
+}
